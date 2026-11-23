@@ -13,10 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           persist-credentials: true
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - name: Kutuphaneleri ve tarayiciyi yukle
@@ -33,7 +33,7 @@ jobs:
         run: xvfb-run -a python zara_takip.py --once
       - name: Teshis raporunu kaydet
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: zara-stok-teshis
           path: stok_teshis.json
