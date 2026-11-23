@@ -126,7 +126,9 @@ def check_stock(browser):
               'product_url': PRODUCT_URL, 'actions': [], 'sizes_seen': [], 'errors': []}
     result = {size: 'unknown' for size in SIZES}
     try:
-        page.goto(PRODUCT_URL, wait_until='domcontentloaded', timeout=60000)
+        response = page.goto(PRODUCT_URL, wait_until='domcontentloaded', timeout=60000)
+        report['http_status'] = response.status if response else None
+        report['page_title'] = page.title()
         page.wait_for_timeout(5000)
         cookie = page.evaluate('''() => {
           const nodes = Array.from(document.querySelectorAll('button,a,[role="button"],div,span'));
@@ -157,6 +159,7 @@ def check_stock(browser):
                buttonClass:b?.className||''};
         })''')
         report['sizes_seen'] = options
+        report['page_url'] = page.url
         for opt in options:
             match = re.search(r'\bEU\s*(50|52)\s*\(', opt['text'], re.I)
             if not match:
@@ -179,6 +182,12 @@ def check_stock(browser):
         return result
     except Exception as e:
         report['errors'].append(f'{type(e).__name__}: {e}'[:500])
+        try:
+            report['page_title'] = page.title()
+            report['page_url'] = page.url
+            report['size_element_count'] = page.locator('ul.size-selector-sizes li').count()
+        except Exception:
+            pass
         report['result'] = result
         DEBUG_FILE.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
         return result
@@ -197,7 +206,7 @@ def main():
 
     with sync_playwright() as p:
         try:
-            browser = p.chromium.launch(headless=True, args=['--no-sandbox'])
+            browser = p.chromium.launch(headless=(os.getenv('ZARA_HEADED') != '1'), args=['--no-sandbox'])
         except Exception as exc:
             sys.exit(f'Chromium başlatılamadı: {exc}. Playwright Chromium kurulumunu kontrol edin.')
         try:
@@ -217,7 +226,9 @@ def main():
                             state[size] = status
                     STATE_FILE.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding='utf-8')
                     if all(x == 'unknown' for x in results.values()):
-                        print('Stok bilgisi çözümlenemedi. stok_teshis.json dosyasını kontrol edin; bildirim üretilmedi.', flush=True)
+                        print('HATA: Stok bilgisi çözümlenemedi. stok_teshis.json raporunu indirin; bildirim gönderilmedi.', flush=True)
+                        if once:
+                            sys.exit(2)
                 except Exception as exc:
                     print(f'[{now}] Kontrol hatası: {type(exc).__name__}: {exc}', flush=True)
                 if once: break
