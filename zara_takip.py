@@ -141,6 +141,31 @@ def check_stock(browser):
         }''')
         report['actions'].append('cookie: '+cookie)
         page.wait_for_timeout(1200)
+        
+    # Ürün tamamen tükenmişse beden listesi gösterilmez.
+    # Yalnızca ürün sayfası doğrulandığında stok dışı kabul et.
+    sold_out_buttons = page.locator("button").filter(
+        has_text=re.compile(
+            r"BENZER\s+ÜRÜNLER\s+TÜKENDİ", re.IGNORECASE
+        )
+    )
+
+    if (
+        response is not None
+        and response.status == 200
+        and "KARELİ REGULAR FIT TAKIM BLAZER" in page.title().upper()
+        and sold_out_buttons.count() > 0
+    ):
+        report['actions'].append('product_sold_out')
+        result = {size: 'out_of_stock' for size in SIZES}
+        report['result'] = result
+        DEBUG_FILE.write_text(
+            json.dumps(report, ensure_ascii=False, indent=2),
+            encoding='utf-8'
+        )
+        return result
+
+
         add = page.locator('button[data-qa-action="add-to-cart"]').first
         try:
             add.click(timeout=4000)
